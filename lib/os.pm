@@ -72,7 +72,7 @@ my sub distribution_release {
 
     my $distribution = linux_distribution_id();
 
-    if ($distribution != 'opensuse-tumbleweed') {
+    if ($distribution ne 'opensuse-tumbleweed') {
         if (-f '/etc/os-release') {
             open(my $fh, '/etc/os-release') or
               die "Cannot open '/etc/os-release' for read: $!\n";
