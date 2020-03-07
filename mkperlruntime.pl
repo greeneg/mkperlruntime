@@ -222,6 +222,40 @@ my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $platfor
                 "-Dsitehtml3dir=/opt/Perl-$perl_version/share/doc/HTML"
             );
         }
+        when ('linux') {
+            @cfg_flags = (
+                "-Dperladmin=$email_address",
+                '-Dlocincpth=\'/usr/include/db48 /usr/include\'',
+                '-Dloclibpth=\'/usr/lib64/db48 /usr/lib64\'',
+                '-Dhint=recommended',
+                '-Duseposix=true',
+                '-Duseithreads=define',
+                '-Dusemultiplicity=define',
+                '-Duse64bitint=define',
+                '-Duse64bitall=define',
+                '-Duselongdouble=define',
+                '-Duseshrplib=true',
+                '-Dlibperl=libperl.dylib',
+                "-Dprefix=/opt/Perl-$perl_version",
+                "-Dsiteprefix=/opt/Perl-$perl_version",
+                "-Dinstallprefix=/opt/Perl-$perl_version",
+                "-Dbin=/opt/Perl-$perl_version/bin",
+                "-Dscriptdir=/opt/Perl-$perl_version/bin",
+                "-Dprivlibdir=/opt/Perl-$perl_version/lib/perl5/$perl_version",
+                "-Darchlibdir=/opt/Perl-$perl_version/lib/perl5/$perl_version/darwin-thread-multi-ld-2level",
+                "-Dman1dir=/opt/Perl-$perl_version/share/man/man1",
+                "-Dman3dir=/opt/Perl-$perl_version/share/man/man3",
+                "-Dhtml1dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dhtml3dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dsitebin=/opt/Perl-$perl_version/bin",
+                "-Dsitescript=/opt/Perl-$perl_version/bin",
+                "-Dsitelib=/opt/Perl-$perl_version/lib/perl5/site_perl/$perl_version",
+                "-Dsitearch=/opt/Perl-$perl_version/lib/perl5/site_perl/$perl_version/darwin-thread-multi-ld-2level",
+                "-Dsiteman1dir=/opt/Perl-$perl_version/share/man/man1",
+                "-Dsiteman3dir=/opt/Perl-$perl_version/share/man/man3",
+                "-Dsitehtml1dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dsitehtml3dir=/opt/Perl-$perl_version/share/doc/HTML"
+            );
     }
     print color('white');
     system("$cfg_command @cfg_flags");
