@@ -183,8 +183,6 @@ my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $platfor
     if ($os_family eq 'linux') {
         $ENV{'LD_LIBRARY_PATH'} = "$current_dir:$LD_LIBRARY_PATH";
     }
-    $ENV{'BUILD_ZLIB'} = 'false';
-    $ENV{'BUILD_BZIP2'} = 0;
     say color('bold white') . "Processing Configuration..." . color('reset');
     my $cfg_command = "/bin/sh ./Configure -des ";
     my @cfg_flags;
