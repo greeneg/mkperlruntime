@@ -232,6 +232,8 @@ my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $platfor
     system("make");
     say color('bold white') . "Running 'make test'" . color('reset');
     system("make", "test");
+    say color('bold white') . "Installing Perl version $perl_version" . color('reset');
+    system('sudo', 'make', 'install');
 }
 
 my sub install_deps ($distribution) {
