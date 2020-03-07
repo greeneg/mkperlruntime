@@ -256,6 +256,7 @@ my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $platfor
                 "-Dsitehtml1dir=/opt/Perl-$perl_version/share/doc/HTML",
                 "-Dsitehtml3dir=/opt/Perl-$perl_version/share/doc/HTML"
             );
+        }
     }
     print color('white');
     system("$cfg_command @cfg_flags");
