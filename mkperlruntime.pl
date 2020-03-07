@@ -9,9 +9,11 @@ use feature qw(
     lexical_subs
     say
     signatures
+    switch
 );
 no warnings 'experimental::lexical_subs';
 no warnings 'experimental::signatures';
+no warnings 'experimental::smartmatch';
 
 use Cwd;
 use Getopt::Long qw(:config gnu_compat);
@@ -44,8 +46,10 @@ my $platform = $os->os_platform();
 my $distribution = $os->os_family($platform);
 my $os_release = $os->os_release($platform);
 
-my $perl_version = '';
+my $perl_version = undef;
 my $email_address = undef;
+
+my $appname = basename $0;
 
 my sub download ($title, $url) {
     say color('bold magenta'). "$title from $url" . color('bold blue');
@@ -153,51 +157,10 @@ my sub process_build_config($perl_version, $file) {
     return $filename;
 }
 
-my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $temp_dir) {
-    # process config file for the version we're installing
-    my %files;
-    my $instruct_file = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/.config/instruct"
-    );
-    $files{'.config/instruct'} = $instruct_file;
-    my $config_sh = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/config.sh"
-    );
-    $files{'config.sh'} = $config_sh;
-    my $config_h  = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/config.h"
-    );
-    $files{'config.h'} = $config_h;
-    my $pod_makefile = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/pod/Makefile"
-    );
-    $files{'pod/Makefile'} = $pod_makefile;
-    my $makefile = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/Makefile"
-    );
-    $files{'Makefile'} = $makefile;
-    my $myconfig = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/myconfig"
-    );
-    $files{'myconfig'} = $myconfig;
-    my $policy_file = process_build_config(
-      $perl_version,
-      "$parent_dir/runtime_config/$os_family/$os_release/Policy.sh"
-    );
-    $files{'Policy.sh'} = $policy_file;
-
-    # inject the other files that are needed
-    $files{'cflags'} = "$parent_dir/runtime_config/$os_family/$os_release/cflags";
-    $files{'makedepend'} = "$parent_dir/runtime_config/$os_family/$os_release/makedepend";
-    $files{'runtests'} = "$parent_dir/runtime_config/$os_family/$os_release/runtests";
-
-    chdir($temp_dir);
+my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $platform,
+                   $temp_dir) {
+    chdir($temp_dir) ||
+      die "Cannot enter directory '$temp_dir/perl-$perl_version: $!";
     download("Downloading 'perl-$perl_version.tar.gz'", 
       "http://www.cpan.org/src/5.0/perl-$perl_version.tar.gz");
     download("Downloading 'perl-$perl_version.tar.gz.md5.txt'",
@@ -210,29 +173,65 @@ my sub build_perl ($perl_version, $parent_dir, $os_family, $os_release, $temp_di
     unpack_tar_gz("perl-$perl_version.tar.gz");
 
     # copy config into directory tree
-    say Dumper %files;
     say color('bold cyan') . "Entering directory '$temp_dir/perl-$perl_version'";
-    chdir "$temp_dir/perl-$perl_version";
-    foreach my $file (keys %files) {
-        print color('bold cyan') . "Copying $files{$file} to $file: ";
-        copy($files{$file}, "$temp_dir/perl-$perl_version/$file");
-        say color('bold green'). 'OK'. color('reset');
-    }
+    chdir "$temp_dir/perl-$perl_version" ||
+      die "Cannot enter directory '$temp_dir/perl-$perl_version: $!";
 
-    chdir("./perl-$perl_version");
     # set our config,sh values
     my $current_dir = cwd;
     my $LD_LIBRARY_PATH = $ENV{'LD_LIBRARY_PATH'};
-    $ENV{'LD_LIBRARY_PATH'} = "$current_dir:$LD_LIBRARY_PATH";
+    if ($os_family eq 'linux') {
+        $ENV{'LD_LIBRARY_PATH'} = "$current_dir:$LD_LIBRARY_PATH";
+    }
     $ENV{'BUILD_ZLIB'} = 'false';
     $ENV{'BUILD_BZIP2'} = 0;
     say color('bold white') . "Processing Configuration..." . color('reset');
-    system("./Configure -S");
+    my $cfg_command = "/bin/sh ./Configure -des ";
+    my @cfg_flags;
+    given ($platform) {
+        when ('darwin') {
+            @cfg_flags = (
+                "-Dperladmin=$email_address",
+                '-Dlocincpth=\'/opt/local/include /opt/local/include/db48 /usr/local/include\'',
+                '-Dloclibpth=\'/opt/local/lib /opt/local/lib/db48 /usr/local/lib\'',
+                '-Dhint=recommended',
+                '-Duseposix=true',
+                '-Duseithreads=define',
+                '-Dusemultiplicity=define',
+                '-Duse64bitint=define',
+                '-Duse64bitall=define',
+                '-Duselongdouble=define',
+                '-Duseshrplib=true',
+                '-Dlibperl=libperl.dylib',
+                "-Dprefix=/opt/Perl-$perl_version",
+                "-Dsiteprefix=/opt/Perl-$perl_version",
+                "-Dinstallprefix=/opt/Perl-$perl_version",
+                "-Dbin=/opt/Perl-$perl_version/bin",
+                "-Dscriptdir=/opt/Perl-$perl_version/bin",
+                "-Dprivlibdir=/opt/Perl-$perl_version/lib/perl5/$perl_version",
+                "-Darchlibdir=/opt/Perl-$perl_version/lib/perl5/$perl_version/darwin-thread-multi-ld-2level",
+                "-Dman1dir=/opt/Perl-$perl_version/share/man/man1",
+                "-Dman3dir=/opt/Perl-$perl_version/share/man/man3",
+                "-Dhtml1dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dhtml3dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dsitebin=/opt/Perl-$perl_version/bin",
+                "-Dsitescript=/opt/Perl-$perl_version/bin",
+                "-Dsitelib=/opt/Perl-$perl_version/lib/perl5/site_perl/$perl_version",
+                "-Dsitearch=/opt/Perl-$perl_version/lib/perl5/site_perl/$perl_version/darwin-thread-multi-ld-2level",
+                "-Dsiteman1dir=/opt/Perl-$perl_version/share/man/man1",
+                "-Dsiteman3dir=/opt/Perl-$perl_version/share/man/man3",
+                "-Dsitehtml1dir=/opt/Perl-$perl_version/share/doc/HTML",
+                "-Dsitehtml3dir=/opt/Perl-$perl_version/share/doc/HTML"
+            );
+        }
+    }
+    print color('white');
+    system("$cfg_command @cfg_flags");
     say color('bold white') . "Running 'make depend'..." . color('reset');
+    print color('white');
     system("make", "depend");
     say color('bold white') . "Running 'make'" . color('reset');
     system("make");
-    exit;
     say color('bold white') . "Running 'make test'" . color('reset');
     system("make", "test");
 }
@@ -241,20 +240,16 @@ my sub install_deps ($distribution) {
     say color('bold cyan') . "INSTALLING DEPENDENCIES. PLEASE WAIT..." .
       color('reset');
     my $pkglib = pkglib->new($distribution);
-    $pkglib->install_pkg($distribution, 'base', 'devel');
-    $pkglib->install_pkg($distribution, 'c_cpp', 'devel');
+    $pkglib->install_pkgs($distribution, 'base', 'core');
 }
 
 sub main {
     umask 0022;
-    if ($perl_version eq '') {
+    if (! defined $perl_version) {
         if (defined $ENV{'PERL_VERSION'}) {
-            my $perl_version = $ENV{'PERL_VERSION'};
+            $perl_version = $ENV{'PERL_VERSION'};
         } else {
-            say STDERR color('bold white on_red') .
-              "No version defined to build! Exiting" .
-              color('reset');
-            exit -1;
+            $perl_version = '5.30.1';
         }
     }
     if (! defined($email_address)) {
@@ -265,12 +260,15 @@ sub main {
     print color("bold white");
     say "OS PLATFORM: $platform";
     say "OS FAMILY: $distribution";
-    print color('reset');
 
+    say "TEMPDIR POLICY:";
     my $temp_dir = tempdir(
         TMPDIR  => 1,
         CLEANUP => 0
     );
+    say " - USE GLOBAL TEMP";
+    say " - CLEANUP";
+    print color('reset');
 
     # install deps
     install_deps($distribution);
@@ -284,12 +282,35 @@ sub main {
 
     # first build perl
     build_perl($perl_version, $parent_dir, $distribution, $os_release,
-               $temp_dir);
+               $platform, $temp_dir);
+    chdir('/var/empty');
+    say "OLD TEMP DIR: $temp_dir";
+}
+
+my sub help {
+    say "$appname - Create Perl Runtimes";
+    say "-" x 79 . "\n";
+    say "OPTIONS:";
+    say " -h|--help                           Print this message";
+    say " -p|--perl-version=VERSION_STRING    Specify version to build. If";
+    say "                                     not specified, will build version";
+    say "                                     5.30.1";
+    say " -e|--email=PERL_ADMIN_EMAIL         Email address for the person whom";
+    say "                                     did this build run";
+}
+
+my sub version {
+    say "$appname - Create Perl Runtimes";
+    say "Version: 1.0";
+    say "Copyright 2020, YggdrasilSoft, LLC.";
+    say "Licensed under the Apache Public License, version 2";
 }
 
 GetOptions(
+    'h|help'            => sub { help(); exit 0; },
+    'v|version'         => sub { version(); exit 0; },
     'p|perl-version=s'  => \$perl_version,
     'e|email=s'         => \$email_address
-);
+) or help();
 
 main();

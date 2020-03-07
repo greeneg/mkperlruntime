@@ -16,7 +16,9 @@ no warnings 'experimental::signatures';
 no warnings 'experimental::smartmatch';
 
 use boolean;
+use Data::Dumper;
 use POSIX;
+use JSON::PP qw(decode_json);
 
 sub new ($class) {
     my $self = {};
@@ -108,12 +110,88 @@ our sub os_platform_arch {
     return $os_platform_arch;
 }
 
+our sub macos_codename ($self, $platform) {
+    my $os_code_name = undef;
+    my $os_major_release = macos_release($self, $platform);
+    given ($os_major_release) {
+        when ('10.0') {
+            $os_code_name = 'Cheetah';
+        }
+        when ('10.1') {
+            $os_code_name = 'Puma';
+        }
+        when ('10.2') {
+            $os_code_name = 'Jaguar';
+        }
+        when ('10.3') {
+            $os_code_name = 'Panther';
+        }
+        when ('10.4') {
+            $os_code_name = 'Tiger';
+        }
+        when ('10.5') {
+            $os_code_name = 'Leopard';
+        }
+        when ('10.6') {
+            $os_code_name = 'Snow Leopard';
+        }
+        when ('10.7') {
+            $os_code_name = 'Lion';
+        }
+        when ('10.8') {
+            $os_code_name = 'Mountain Lion';
+        }
+        when ('10.9') {
+            $os_code_name = 'Mavericks';
+        }
+        when ('10.10') {
+            $os_code_name = 'Yosemite';
+        }
+        when ('10.11') {
+            $os_code_name = 'El Capitan';
+        }
+        when ('10.12') {
+            $os_code_name = 'Sierra';
+        }
+        when ('10.13') {
+            $os_code_name = 'High Sierra';
+        }
+        when ('10.14') {
+            $os_code_name = 'Mojave';
+        }
+        when ('10.15') {
+            $os_code_name = 'Catalina';
+        }
+    }
+
+    return $os_code_name;
+}
+
+our sub macos_release ($self, $platform) {
+    my $system_profile = qx|/usr/sbin/system_profiler SPSoftwareDataType -json|;
+
+    my $os_profile_json = decode_json $system_profile;
+    my $os_profile = shift @{$os_profile_json->{'SPSoftwareDataType'}};
+    my $os_version = %{$os_profile}{'os_version'};
+
+    my $os_code_name = undef;
+    my (undef, $os_release, undef) = split(/\s+/, $os_version);
+    # drop the patch version
+    my ($major, $minor, undef) = split(/\./, $os_release);
+    my $os_major_release = "$major.$minor";
+
+    return $os_major_release;
+}
+
 our sub os_family ($self, $platform) {
     my $os_family;
 
     given ($platform) {
         when ('linux') {
             $os_family = linux_distribution();
+        }
+        when ('darwin') {
+            $os_family = macos_codename($self, $platform);
         }
     }
 
@@ -126,6 +204,9 @@ our sub os_release ($self, $platform) {
     given ($platform) {
         when ('linux') {
             $os_release = distribution_release();
+        }
+        when ('darwin') {
+            $os_release = macos_release($self, $platform);
         }
     }
 

@@ -21,83 +21,29 @@ my $distro;
 my $pkgmgr;
 
 my %os_pkgmgr = (
-    'opensuse' => 'zypper'
+    'opensuse' => 'zypper',
+    'Catalina' => 'MacPorts'
 );
 
 my %pkg_map = (
     'opensuse' => {
-        'devel'     => {
-            'base'  => 'patterns-devel-base-devel_basis',
-            'c_cpp' => 'patterns-devel-C-C++-devel_C_C++'
-        },
-        'audit'     => {
-            'devel' => 'audit-devel',
-            'main'  => 'audit',
-            'lib'   => 'libaudit1'
-        },
-        'autoconf'  => {
-            'main'  => 'autoconf'
-        },
-        'automake'  => {
-            'main'  => 'automake'
-        },
-        'binutils'  => {
-            'devel' => 'binutils-devel',
-            'main'  => 'binutils'
-        },
-        'bison'     => {
-            'main'  => 'bison'
-        },
-        'byacc'     => {
-            'main'  => 'byacc'
-        },
-        'cpp'       => {
-            'main'  => 'cpp'
-        },
-        'flex'      => {
-            'main'  => 'flex'
-        },
-        'gcc'       => {
-            'main'  => 'gcc'
-        },
-        'gdbm'      => {
-            'devel' => 'gdbm-devel',
-            'main'  => 'libgdbm4'
-        },
-        'gettext'   => {
-            'main'  => 'gettext-runtime',
-            'utils' => 'gettext-tools'
-        },
-        'glibc'     => {
-            'devel' => 'glibc-devel',
-            'main'  => 'glibc'
-        },
-        'libnsl'    => {
-            'devel' => 'libnsl-devel',
-            'main'  => 'libnsl3'
-        },
-        'libtool'   => {
-            'main'  => 'libtool'
-        },
-        'm4'        => {
-            'main'  => 'm4'
-        },
-        'make'      => {
-            'main'  => 'make'
-        },
-        'makeinfo'  => {
-            'main'  => 'makeinfo'
-        },
-        'ncurses'   => {
-            'devel' => 'ncurses-devel',
-            'main'  => 'libncurses6'
-        },
-        'patch'     => {
-            'main'  => 'patch'
-        },
-        'zlib'      => {
-            'devel' => 'zlib-devel',
-            'main'  => 'libz1'
+        'base'      => {
+            'core'  => [
+                'patterns-devel-base-devel_basis',
+                'patterns-devel-C-C++-devel_C_C++'
+            ]
+        }
+    },
+    'Catalina'      => {
+        'base'      => {
+            'core'  => [
+                'bison',
+                'db48',
+                'gdbm',
+                'openssl',
+                'pth',
+                'zlib'
+            ]
         }
     }
 );
@@ -139,15 +85,43 @@ my sub zypper_install ($pkg_name) {
     }
 }
 
-our sub install_pkg ($self, $os, $variant, $pkg) {
-    my $pkg_name = $pkg_map{$os}{$pkg}{$variant};
+my sub check_if_port_installed ($pkg_name) {
+    system("/opt/local/bin/port -q installed $pkg_name | grep -q active");
+    if ($? != 0) {
+        return false;
+    } else {
+        return true;
+    }
+}
 
-    print color('white');
-    print STDOUT "Installing $pkg_name: ";
-    print color('reset');
-    given ($os_pkgmgr{$os}) {
-        when ('zypper') {
-            zypper_install($pkg_name);
+my sub ports_install ($pkg_name) {
+    if (check_if_port_installed($pkg_name) == false) {
+        system('sudo', '/opt/local/bin/port', 'install', $pkg_name);
+        if ($? != 0) {
+            return false;
+        }
+    } else {
+        print color('green');
+        say 'already installed';
+        print color('reset');
+        return true;
+    }
+}
+
+our sub install_pkgs ($self, $os, $class, $subclass) {
+    my $pkgs = $pkg_map{$os}{$class}{$subclass};
+
+    foreach my $pkg (@{$pkgs}) {
+        print color('white');
+        print STDOUT "Installing $pkg: ";
+        print color('reset');
+        given ($os_pkgmgr{$os}) {
+            when ('zypper') {
+                zypper_install($pkg);
+            }
+            when ('MacPorts') {
+                ports_install($pkg);
+            }
         }
     }
 }
